@@ -36,11 +36,18 @@ class RideViewSet(mixins.CreateModelMixin,
         """
         serializer.save(rider=self.request.user)
 
+
 class RideStatusUpdateViewSet(viewsets.ModelViewSet):
+    """
+    Viewset that provides partial update action for updating ride status.
+
+    Only drivers can update ride status.
+    """
     queryset = Ride.objects.all()
     permission_classes = [IsDriver]
 
     def partial_update(self, request, *args, **kwargs):
+        """Update ride status only if the request is valid."""
         ride = self.get_object()
         if 'status' in request.data:
             ride.status = request.data['status']
@@ -48,11 +55,22 @@ class RideStatusUpdateViewSet(viewsets.ModelViewSet):
             return Response({'message': 'Status updated successfully'}, status=status.HTTP_200_OK)
         return Response({'error': 'Invalid request'}, status=status.HTTP_400_BAD_REQUEST)
 
+
 class RideTrackingViewSet(viewsets.ModelViewSet):
+    """
+    Viewset that provides partial update action for updating ride current location.
+
+    Only drivers can update ride current location.
+    """
     queryset = Ride.objects.all()
     permission_classes = [IsDriver]
 
     def partial_update(self, request, *args, **kwargs):
+        """
+        Update ride current location only if the request is valid.
+
+        The request must include 'latitude' and 'longitude' in the request data.
+        """
         ride = self.get_object()
         if 'latitude' in request.data and 'longitude' in request.data:
             ride.current_location_lat = request.data['latitude']
