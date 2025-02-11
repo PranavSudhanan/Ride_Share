@@ -8,7 +8,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 router = DefaultRouter()
 
 # User endpoints
-router.register(r'register', UserRegisterViewSet, basename='register')
+router.register(r'users', UserRegisterViewSet, basename='user-register')
 
 # Ride endpoints
 router.register(r'rides', RideViewSet, basename='ride')

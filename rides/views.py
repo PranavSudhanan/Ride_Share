@@ -3,60 +3,62 @@ from rest_framework.response import Response
 from .serializers import RideSerializer
 from .models import Ride
 from rest_framework.decorators import action
+from rest_framework.permissions import BasePermission
+
+class IsDriver(BasePermission):
+    """Custom permission to allow only drivers to update ride status and location."""
+    
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.is_driver
+
 
 class RideViewSet(mixins.CreateModelMixin,
                  mixins.ListModelMixin,
                  mixins.RetrieveModelMixin,
                  viewsets.GenericViewSet):
+    """
+    Viewset that provides create, list and retrieve actions for Rides.
+    """
     
     serializer_class = RideSerializer
     
     def get_queryset(self):
-        user = self.request.user
-        if user.is_driver == False:
-            return Ride.objects.filter(rider=user)
-        elif user.is_driver == True:
-            return Ride.objects.filter(driver=user)
+        """Ensure only authorized users can see rides."""
+        if self.request.user.is_authenticated and self.request.user.is_driver:
+            return Ride.objects.filter(driver=self.request.user)
+        elif self.request.user.is_authenticated:
+            return Ride.objects.filter(rider=self.request.user)
         return Ride.objects.none()
     
     def perform_create(self, serializer):
+        """
+        Create a new ride with the requesting user as the rider.
+        """
         serializer.save(rider=self.request.user)
 
-class RideStatusUpdateViewSet(mixins.UpdateModelMixin, viewsets.GenericViewSet):
+class RideStatusUpdateViewSet(viewsets.ModelViewSet):
     queryset = Ride.objects.all()
-    serializer_class = RideSerializer
-    
-    @action(detail=True, methods=['patch'])
-    def update_status(self, request, pk=None):
-        ride = self.get_object()
-        status = request.data.get('status')
-        
-        if status not in dict(Ride.STATUS_CHOICES):
-            return Response({'error': 'Invalid status'}, 
-                          status=status.HTTP_400_BAD_REQUEST)
-        
-        ride.status = status
-        ride.save()
-        return Response(RideSerializer(ride).data)
+    permission_classes = [IsDriver]
 
-class RideTrackingViewSet(mixins.UpdateModelMixin, viewsets.GenericViewSet):
-    queryset = Ride.objects.all()
-    serializer_class = RideSerializer
-    
-    @action(detail=True, methods=['patch'])
-    def update_location(self, request, pk=None):
+    def partial_update(self, request, *args, **kwargs):
         ride = self.get_object()
-        
-        # Validate coordinates
-        lat = request.data.get('latitude')
-        lon = request.data.get('longitude')
-        
-        if not (-90 <= float(lat) <= 90) or not (-180 <= float(lon) <= 180):
-            return Response({'error': 'Invalid coordinates'},
-                          status=status.HTTP_400_BAD_REQUEST)
-        
-        ride.current_location_lat = lat
-        ride.current_location_lon = lon
-        ride.save()
-        
-        return Response(RideSerializer(ride).data)
+        if 'status' in request.data:
+            ride.status = request.data['status']
+            ride.save()
+            return Response({'message': 'Status updated successfully'}, status=status.HTTP_200_OK)
+        return Response({'error': 'Invalid request'}, status=status.HTTP_400_BAD_REQUEST)
+
+class RideTrackingViewSet(viewsets.ModelViewSet):
+    queryset = Ride.objects.all()
+    permission_classes = [IsDriver]
+
+    def partial_update(self, request, *args, **kwargs):
+        ride = self.get_object()
+        if 'latitude' in request.data and 'longitude' in request.data:
+            ride.current_location_lat = request.data['latitude']
+            ride.current_location_lon = request.data['longitude']
+            ride.save()
+            return Response({'message': 'Location updated successfully'}, status=status.HTTP_200_OK)
+        return Response({'error': 'Invalid location'}, status=status.HTTP_400_BAD_REQUEST)
+
+
