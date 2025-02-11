@@ -1,0 +1,14 @@
+# Ignore files
+*.log
+*.lock
+*.db
+*.sqlite
+*.db-journal
+*.pid
+*.seed
+*.pid.lock
+*.log
+*.notebook
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
